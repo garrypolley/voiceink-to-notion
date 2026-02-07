@@ -1,60 +1,25 @@
 # VoiceInk to Notion
 
-Automatically sync your VoiceInk transcriptions to a Notion database.
+[![VoiceInk](https://img.shields.io/badge/Works%20with-VoiceInk-blue?style=for-the-badge)](https://tryvoiceink.com?atp=garrypolley)
+[![Notion](https://img.shields.io/badge/Syncs%20to-Notion-black?style=for-the-badge)](https://notion.so)
 
-## Quick Start
+Automatically sync your [VoiceInk](https://tryvoiceink.com?atp=garrypolley) transcriptions to a Notion database.
+
+## Install
 
 ```bash
-# Install
+git clone https://github.com/garrypolley/voiceink-to-notion.git
+cd voiceink-to-notion
 uv sync
-
-# Run (interactive setup on first run)
-uv run voiceink-to-notion sync
-```
-
-That's it! On first run, it will:
-1. Prompt for your Notion API key and database ID
-2. Test the connection
-3. Create any missing database properties
-4. Fetch existing entries from Notion (so it doesn't re-sync)
-5. Sync all new transcriptions
-
-## Commands
-
-```bash
-# Install as background service (runs forever, starts on login)
 uv run voiceink-to-notion install
-
-# Check if background service is running
-uv run voiceink-to-notion service
-
-# View service logs
-uv run voiceink-to-notion logs
-uv run voiceink-to-notion logs -f        # Follow in real-time
-
-# Remove background service
-uv run voiceink-to-notion uninstall
-
-# --- Manual sync (if not using background service) ---
-
-# Sync continuously - watches for new transcriptions
-uv run voiceink-to-notion sync
-
-# Sync once and exit
-uv run voiceink-to-notion sync --once
-
-# Check status
-uv run voiceink-to-notion status
-
-# List recent transcriptions
-uv run voiceink-to-notion list
-uv run voiceink-to-notion list -n 20
-
-# Reset sync state (start fresh)
-uv run voiceink-to-notion reset
 ```
 
-## Setup
+That's it! The installer will prompt you for your Notion API key and database ID, then start syncing in the background.
+
+---
+
+<details>
+<summary><strong>Setup Details</strong></summary>
 
 ### 1. Create a Notion Integration
 
@@ -65,11 +30,7 @@ uv run voiceink-to-notion reset
 
 ### 2. Create a Notion Database
 
-Create a database in Notion. The app will automatically add these properties if missing:
-- **Text** - Full transcription text
-- **Timestamp** - When the transcription was created
-- **Duration** - Recording duration in seconds
-- **VoiceInk ID** - Unique identifier for deduplication
+Create a database in Notion. The app will automatically add the required properties (Text, Timestamp, Duration, VoiceInk ID) if they're missing.
 
 ### 3. Share Database with Integration
 
@@ -81,13 +42,47 @@ Create a database in Notion. The app will automatically add these properties if 
 
 Copy from the URL: `https://notion.so/workspace/DATABASE_ID_HERE?v=...`
 
-### 5. Run
+### 5. Run the Installer
 
 ```bash
-uv run voiceink-to-notion sync
+uv run voiceink-to-notion install
 ```
 
-You'll be prompted for credentials on first run, or create `~/.config/voiceink-to-notion/config.json`:
+You'll be prompted for your API key and database ID. The service will then run in the background automatically.
+
+</details>
+
+<details>
+<summary><strong>Technical Details</strong></summary>
+
+### How It Works
+
+1. **Reads VoiceInk's database** - Parses the SwiftData (SQLite) store at `~/Library/Application Support/com.prakashjoshipax.VoiceInk/`
+
+2. **Caches synced IDs locally** - On first run, fetches all existing entries from Notion to know what's already synced. Stores this in `~/.config/voiceink-to-notion/sync_state.json`
+
+3. **Syncs only new items** - Compares VoiceInk transcriptions against the local cache, only uploads new ones
+
+4. **Runs as a launchd service** - Starts automatically on login, restarts if it crashes, syncs every 30 seconds
+
+### Commands
+
+```bash
+uv run voiceink-to-notion install    # Install background service
+uv run voiceink-to-notion uninstall  # Remove background service
+uv run voiceink-to-notion service    # Check if service is running
+uv run voiceink-to-notion logs       # View service logs
+uv run voiceink-to-notion logs -f    # Follow logs in real-time
+uv run voiceink-to-notion sync       # Run manually (foreground)
+uv run voiceink-to-notion sync --once # Sync once and exit
+uv run voiceink-to-notion status     # Show sync statistics
+uv run voiceink-to-notion list       # List recent transcriptions
+uv run voiceink-to-notion reset      # Clear sync state
+```
+
+### Configuration
+
+Config is stored at `~/.config/voiceink-to-notion/config.json`:
 
 ```json
 {
@@ -97,64 +92,18 @@ You'll be prompted for credentials on first run, or create `~/.config/voiceink-t
 }
 ```
 
-## Background Service
-
-The recommended way to run this is as a background service using macOS launchd:
-
-```bash
-uv run voiceink-to-notion install
-```
-
-This will:
-- **Start automatically** when you log in
-- **Run forever** in the background
-- **Restart automatically** if it crashes
-- **Sync every 30 seconds** for new transcriptions
-
-Logs are written to `~/.config/voiceink-to-notion/logs/`
-
-To stop and remove the service:
-```bash
-uv run voiceink-to-notion uninstall
-```
-
-## How It Works
-
-1. **Reads VoiceInk's database** - Parses the SwiftData (SQLite) store at `~/Library/Application Support/com.prakashjoshipax.VoiceInk/`
-
-2. **Caches synced IDs locally** - On first run, fetches all existing entries from Notion to know what's already synced. Stores this in `~/.config/voiceink-to-notion/sync_state.json`
-
-3. **Syncs only new items** - Compares VoiceInk transcriptions against the local cache, only uploads new ones
-
-4. **Runs continuously** - Polls every 30 seconds for new transcriptions
-
-## Environment Variables
-
-Alternative to config file:
+Or use environment variables:
 
 ```bash
 export NOTION_API_KEY="ntn_your_token"
 export NOTION_DATABASE_ID="your_database_id"
-export SYNC_INTERVAL=30
 ```
 
-## Troubleshooting
+### Logs
 
-### "VoiceInk database not found"
-Make sure VoiceInk is installed and you've made at least one transcription.
+Service logs are at `~/.config/voiceink-to-notion/logs/`
 
-### "Database not found" 
-1. Check the database ID is correct
-2. Make sure you've shared the database with your integration
-
-### Schema issues
-The app auto-creates missing properties. If you see errors, run `uv run voiceink-to-notion status` to diagnose.
-
-### Re-sync everything
-```bash
-uv run voiceink-to-notion reset
-uv run voiceink-to-notion sync --once
-```
+</details>
 
 ## License
 
