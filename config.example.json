@@ -1,0 +1,6 @@
+{
+    "notion_api_key": "secret_your_notion_integration_token",
+    "notion_database_id": "your_database_id_from_url",
+    "sync_interval_seconds": 30,
+    "voiceink_db_path": null
+}
